@@ -5,6 +5,7 @@ import { globSync } from 'glob';
 import { basename, dirname, join } from 'path';
 import postcss from 'postcss';
 import cssImport from 'postcss-import';
+import cssNested from 'postcss-nested';
 import cssRtl from 'postcss-rtlcss';
 import cssUrl from 'postcss-url';
 
@@ -22,7 +23,8 @@ const DEV_MODE = process.env.CSS_DEBUG != null;
 const written = new Set<string>();
 
 const generateAllCSSEmbeds = async () => {
-    const cssEntryPoints = globSync(join(srcFolders, '**/*.css'));
+    // const cssEntryPoints = globSync(join(srcFolders, '**/*.css')); // windows not working with join?
+    const cssEntryPoints = globSync(`./packages/${packageFolder}/src/**/*.css`);
     for (const cssEntryPoint of cssEntryPoints) {
         await generateCSSEmbed(cssEntryPoint);
     }
@@ -54,6 +56,8 @@ const generateCSSEmbed = async (entry: string) => {
 const loadAndProcessCSSFile = async (cssPath: string) => {
     const css = fs.readFileSync(cssPath, 'utf8');
     const result = await postcss(
+        // allow nesting of rules, e.g.
+        cssNested(),
         // inline @import(./path.css)
         cssImport(),
         // embed e.g. url(./path.svg) as data uri
