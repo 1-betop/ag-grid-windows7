@@ -36,7 +36,9 @@ export const iconOverrides = (args: IconSetOverridesArgs) => {
         for (const key of Object.keys(icons)) {
             const imageCssValue = imageValueToCss(icons[key]);
             if (mask) {
-                cssParts.push(`.ag-icon-${key}::before { mask-image: ${imageCssValue}; }`);
+                cssParts.push(
+                    `.ag-icon-${key}::before { -webkit-mask-image: ${imageCssValue}; mask-image: ${imageCssValue}; }`
+                );
             } else {
                 cssParts.push(`.ag-icon-${key}::before { background-image: ${imageCssValue}; ${unsetMaskIcon} }`);
             }

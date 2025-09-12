@@ -91,7 +91,7 @@ export const getQuartzIconsCss = (args: { strokeWidth?: number } = {}) => {
     let result = '';
     for (const iconName of [...Object.keys(iconNameToSvgFragment), ...Object.keys(iconNameToFullSvg)]) {
         const iconSvg = quartzIconSvg(iconName, args.strokeWidth);
-        result += `.ag-icon-${iconName}::before { mask-image: url('data:image/svg+xml,${encodeURIComponent(iconSvg)}'); }\n`;
+        result += `.ag-icon-${iconName}::before { -webkit-mask-image: url('data:image/svg+xml,${encodeURIComponent(iconSvg)}'); mask-image: url('data:image/svg+xml,${encodeURIComponent(iconSvg)}'); }\n`;
     }
     return result;
 };
