@@ -1,0 +1,66 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+Object.defineProperty(exports, "runSubRepoCommand", {
+    enumerable: true,
+    get: function() {
+        return runSubRepoCommand;
+    }
+});
+const _exec = require("./exec");
+const _terminalcolors = require("./terminal-colors");
+function runSubRepoCommand({ command, subRepoFolder, isVerbose }) {
+    const getExecValue = (0, _exec.createGetExecValue)({
+        isVerbose
+    });
+    const exec = (0, _exec.createExec)({
+        isVerbose
+    });
+    // Check if .gitrepo parent is in sync with repo
+    const gitRepoParentValue = getExecValue(`git config --file ${subRepoFolder}/.gitrepo subrepo.parent`, '.gitrepo parent value');
+    let gitRepoParentInSync = true;
+    try {
+        exec(`git merge-base --is-ancestor ${gitRepoParentValue} HEAD`, 'Check if .gitrepo parent value is valid on this repo');
+    } catch  {
+        gitRepoParentInSync = false;
+    }
+    if (!gitRepoParentInSync) {
+        console.log(`⚠️  .gitrepo parent value (${_terminalcolors.TERMINAL_COLORS.cyan}${gitRepoParentValue}${_terminalcolors.TERMINAL_COLORS.reset}) is out of sync with repo`);
+    }
+    if (command === 'check') {
+        if (gitRepoParentInSync) {
+            console.log(`✅ Subrepo ${_terminalcolors.TERMINAL_COLORS.cyan}${subRepoFolder}${_terminalcolors.TERMINAL_COLORS.reset} is in a valid state with .gitrepo parent value ${_terminalcolors.TERMINAL_COLORS.cyan}${gitRepoParentValue}${_terminalcolors.TERMINAL_COLORS.reset}`);
+        }
+        return;
+    }
+    const latestCommit = getExecValue(`git log --format=%H -1`, 'Latest commit');
+    // Update `.gitrepo` parent sha, so it is on HEAD and so that
+    // `git subrepo` command works.
+    // Needed when a rebase/amend has occured after a subrepo command
+    // has occurred, which changes the commit shas.
+    if (!gitRepoParentInSync) {
+        const gitRepoParentsCommit = getExecValue(`git log --format=%P --follow -1 ${subRepoFolder}/.gitrepo`, 'Parent of last .gitrepo file commit');
+        // Should only be 1 parent, but in case there are multiple eg, a merge commit, take first parent
+        const gitRepoParentCommit = gitRepoParentsCommit.split(' ')[0];
+        exec(`git config --file ${subRepoFolder}/.gitrepo subrepo.parent ${gitRepoParentCommit}`, 'Update .gitrepo file with parent');
+        exec('git commit -am "Update .gitrepo parent sha"');
+        console.log(`✅ .gitrepo parent value updated to ${_terminalcolors.TERMINAL_COLORS.cyan}${gitRepoParentCommit}${_terminalcolors.TERMINAL_COLORS.reset}`);
+    }
+    const subRepoCmdOut = getExecValue(`git subrepo ${command} ${subRepoFolder}`);
+    const isUpToDate = subRepoCmdOut.includes('is up to date') || subRepoCmdOut.includes('has no new commits');
+    if (isUpToDate) {
+        console.log(`✅ Subrepo ${_terminalcolors.TERMINAL_COLORS.cyan}${subRepoFolder}${_terminalcolors.TERMINAL_COLORS.reset} is up to date`);
+    } else {
+        if (!gitRepoParentInSync) {
+            const subRepoCmdSha = getExecValue(`git log --format=%H -1`, 'Subrepo command sha');
+            exec(`git reset --soft HEAD~2`, 'Soft reset last 2 commits, so that it can be squashed later');
+            exec(`git config --file ${subRepoFolder}/.gitrepo subrepo.parent ${latestCommit}`, 'Update `.gitrepo` parent to previous latest commit, so that in the upcoming commit, the parent is still valid');
+            exec(`git add ${subRepoFolder}/.gitrepo`);
+            exec(`git commit --reuse-message ${subRepoCmdSha}`);
+        }
+        console.log(`✅ Subrepo ${_terminalcolors.TERMINAL_COLORS.cyan}${subRepoFolder}${_terminalcolors.TERMINAL_COLORS.reset} has been ${_terminalcolors.TERMINAL_COLORS.cyan}${command}ed${_terminalcolors.TERMINAL_COLORS.reset} and is up to date`);
+    }
+}
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIi4uLy4uLy4uLy4uLy4uLy4uL3NjcmlwdHMvc3VicmVwby9zcmMvbGliL3J1blN1YlJlcG9Db21tYW5kLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IGNyZWF0ZUV4ZWMsIGNyZWF0ZUdldEV4ZWNWYWx1ZSB9IGZyb20gJy4vZXhlYyc7XHJcbmltcG9ydCB7IFRFUk1JTkFMX0NPTE9SUyBhcyB0YyB9IGZyb20gJy4vdGVybWluYWwtY29sb3JzJztcclxuXHJcbmV4cG9ydCB0eXBlIENvbW1hbmQgPSAncHVzaCcgfCAncHVsbCcgfCAnY2hlY2snO1xyXG5leHBvcnQgaW50ZXJmYWNlIFN1YnJlcG9Db21tYW5kUGFyYW1zIHtcclxuICAgIGNvbW1hbmQ6IENvbW1hbmQ7XHJcbiAgICBzdWJSZXBvRm9sZGVyOiBzdHJpbmc7XHJcbiAgICBpc1ZlcmJvc2U/OiBib29sZWFuO1xyXG59XHJcblxyXG5leHBvcnQgZnVuY3Rpb24gcnVuU3ViUmVwb0NvbW1hbmQoeyBjb21tYW5kLCBzdWJSZXBvRm9sZGVyLCBpc1ZlcmJvc2UgfTogU3VicmVwb0NvbW1hbmRQYXJhbXMpIHtcclxuICAgIGNvbnN0IGdldEV4ZWNWYWx1ZSA9IGNyZWF0ZUdldEV4ZWNWYWx1ZSh7IGlzVmVyYm9zZSB9KTtcclxuICAgIGNvbnN0IGV4ZWMgPSBjcmVhdGVFeGVjKHsgaXNWZXJib3NlIH0pO1xyXG5cclxuICAgIC8vIENoZWNrIGlmIC5naXRyZXBvIHBhcmVudCBpcyBpbiBzeW5jIHdpdGggcmVwb1xyXG4gICAgY29uc3QgZ2l0UmVwb1BhcmVudFZhbHVlID0gZ2V0RXhlY1ZhbHVlKFxyXG4gICAgICAgIGBnaXQgY29uZmlnIC0tZmlsZSAke3N1YlJlcG9Gb2xkZXJ9Ly5naXRyZXBvIHN1YnJlcG8ucGFyZW50YCxcclxuICAgICAgICAnLmdpdHJlcG8gcGFyZW50IHZhbHVlJ1xyXG4gICAgKTtcclxuXHJcbiAgICBsZXQgZ2l0UmVwb1BhcmVudEluU3luYyA9IHRydWU7XHJcbiAgICB0cnkge1xyXG4gICAgICAgIGV4ZWMoXHJcbiAgICAgICAgICAgIGBnaXQgbWVyZ2UtYmFzZSAtLWlzLWFuY2VzdG9yICR7Z2l0UmVwb1BhcmVudFZhbHVlfSBIRUFEYCxcclxuICAgICAgICAgICAgJ0NoZWNrIGlmIC5naXRyZXBvIHBhcmVudCB2YWx1ZSBpcyB2YWxpZCBvbiB0aGlzIHJlcG8nXHJcbiAgICAgICAgKTtcclxuICAgIH0gY2F0Y2gge1xyXG4gICAgICAgIGdpdFJlcG9QYXJlbnRJblN5bmMgPSBmYWxzZTtcclxuICAgIH1cclxuXHJcbiAgICBpZiAoIWdpdFJlcG9QYXJlbnRJblN5bmMpIHtcclxuICAgICAgICBjb25zb2xlLmxvZyhg4pqg77iPICAuZ2l0cmVwbyBwYXJlbnQgdmFsdWUgKCR7dGMuY3lhbn0ke2dpdFJlcG9QYXJlbnRWYWx1ZX0ke3RjLnJlc2V0fSkgaXMgb3V0IG9mIHN5bmMgd2l0aCByZXBvYCk7XHJcbiAgICB9XHJcblxyXG4gICAgaWYgKGNvbW1hbmQgPT09ICdjaGVjaycpIHtcclxuICAgICAgICBpZiAoZ2l0UmVwb1BhcmVudEluU3luYykge1xyXG4gICAgICAgICAgICBjb25zb2xlLmxvZyhcclxuICAgICAgICAgICAgICAgIGDinIUgU3VicmVwbyAke3RjLmN5YW59JHtzdWJSZXBvRm9sZGVyfSR7dGMucmVzZXR9IGlzIGluIGEgdmFsaWQgc3RhdGUgd2l0aCAuZ2l0cmVwbyBwYXJlbnQgdmFsdWUgJHt0Yy5jeWFufSR7Z2l0UmVwb1BhcmVudFZhbHVlfSR7dGMucmVzZXR9YFxyXG4gICAgICAgICAgICApO1xyXG4gICAgICAgIH1cclxuICAgICAgICByZXR1cm47XHJcbiAgICB9XHJcblxyXG4gICAgY29uc3QgbGF0ZXN0Q29tbWl0ID0gZ2V0RXhlY1ZhbHVlKGBnaXQgbG9nIC0tZm9ybWF0PSVIIC0xYCwgJ0xhdGVzdCBjb21taXQnKTtcclxuXHJcbiAgICAvLyBVcGRhdGUgYC5naXRyZXBvYCBwYXJlbnQgc2hhLCBzbyBpdCBpcyBvbiBIRUFEIGFuZCBzbyB0aGF0XHJcbiAgICAvLyBgZ2l0IHN1YnJlcG9gIGNvbW1hbmQgd29ya3MuXHJcbiAgICAvLyBOZWVkZWQgd2hlbiBhIHJlYmFzZS9hbWVuZCBoYXMgb2NjdXJlZCBhZnRlciBhIHN1YnJlcG8gY29tbWFuZFxyXG4gICAgLy8gaGFzIG9jY3VycmVkLCB3aGljaCBjaGFuZ2VzIHRoZSBjb21taXQgc2hhcy5cclxuICAgIGlmICghZ2l0UmVwb1BhcmVudEluU3luYykge1xyXG4gICAgICAgIGNvbnN0IGdpdFJlcG9QYXJlbnRzQ29tbWl0ID0gZ2V0RXhlY1ZhbHVlKFxyXG4gICAgICAgICAgICBgZ2l0IGxvZyAtLWZvcm1hdD0lUCAtLWZvbGxvdyAtMSAke3N1YlJlcG9Gb2xkZXJ9Ly5naXRyZXBvYCxcclxuICAgICAgICAgICAgJ1BhcmVudCBvZiBsYXN0IC5naXRyZXBvIGZpbGUgY29tbWl0J1xyXG4gICAgICAgICk7XHJcbiAgICAgICAgLy8gU2hvdWxkIG9ubHkgYmUgMSBwYXJlbnQsIGJ1dCBpbiBjYXNlIHRoZXJlIGFyZSBtdWx0aXBsZSBlZywgYSBtZXJnZSBjb21taXQsIHRha2UgZmlyc3QgcGFyZW50XHJcbiAgICAgICAgY29uc3QgZ2l0UmVwb1BhcmVudENvbW1pdCA9IGdpdFJlcG9QYXJlbnRzQ29tbWl0LnNwbGl0KCcgJylbMF07XHJcblxyXG4gICAgICAgIGV4ZWMoXHJcbiAgICAgICAgICAgIGBnaXQgY29uZmlnIC0tZmlsZSAke3N1YlJlcG9Gb2xkZXJ9Ly5naXRyZXBvIHN1YnJlcG8ucGFyZW50ICR7Z2l0UmVwb1BhcmVudENvbW1pdH1gLFxyXG4gICAgICAgICAgICAnVXBkYXRlIC5naXRyZXBvIGZpbGUgd2l0aCBwYXJlbnQnXHJcbiAgICAgICAgKTtcclxuICAgICAgICBleGVjKCdnaXQgY29tbWl0IC1hbSBcIlVwZGF0ZSAuZ2l0cmVwbyBwYXJlbnQgc2hhXCInKTtcclxuICAgICAgICBjb25zb2xlLmxvZyhg4pyFIC5naXRyZXBvIHBhcmVudCB2YWx1ZSB1cGRhdGVkIHRvICR7dGMuY3lhbn0ke2dpdFJlcG9QYXJlbnRDb21taXR9JHt0Yy5yZXNldH1gKTtcclxuICAgIH1cclxuXHJcbiAgICBjb25zdCBzdWJSZXBvQ21kT3V0ID0gZ2V0RXhlY1ZhbHVlKGBnaXQgc3VicmVwbyAke2NvbW1hbmR9ICR7c3ViUmVwb0ZvbGRlcn1gKTtcclxuICAgIGNvbnN0IGlzVXBUb0RhdGUgPSBzdWJSZXBvQ21kT3V0LmluY2x1ZGVzKCdpcyB1cCB0byBkYXRlJykgfHwgc3ViUmVwb0NtZE91dC5pbmNsdWRlcygnaGFzIG5vIG5ldyBjb21taXRzJyk7XHJcblxyXG4gICAgaWYgKGlzVXBUb0RhdGUpIHtcclxuICAgICAgICBjb25zb2xlLmxvZyhg4pyFIFN1YnJlcG8gJHt0Yy5jeWFufSR7c3ViUmVwb0ZvbGRlcn0ke3RjLnJlc2V0fSBpcyB1cCB0byBkYXRlYCk7XHJcbiAgICB9IGVsc2Uge1xyXG4gICAgICAgIGlmICghZ2l0UmVwb1BhcmVudEluU3luYykge1xyXG4gICAgICAgICAgICBjb25zdCBzdWJSZXBvQ21kU2hhID0gZ2V0RXhlY1ZhbHVlKGBnaXQgbG9nIC0tZm9ybWF0PSVIIC0xYCwgJ1N1YnJlcG8gY29tbWFuZCBzaGEnKTtcclxuICAgICAgICAgICAgZXhlYyhgZ2l0IHJlc2V0IC0tc29mdCBIRUFEfjJgLCAnU29mdCByZXNldCBsYXN0IDIgY29tbWl0cywgc28gdGhhdCBpdCBjYW4gYmUgc3F1YXNoZWQgbGF0ZXInKTtcclxuXHJcbiAgICAgICAgICAgIGV4ZWMoXHJcbiAgICAgICAgICAgICAgICBgZ2l0IGNvbmZpZyAtLWZpbGUgJHtzdWJSZXBvRm9sZGVyfS8uZ2l0cmVwbyBzdWJyZXBvLnBhcmVudCAke2xhdGVzdENvbW1pdH1gLFxyXG4gICAgICAgICAgICAgICAgJ1VwZGF0ZSBgLmdpdHJlcG9gIHBhcmVudCB0byBwcmV2aW91cyBsYXRlc3QgY29tbWl0LCBzbyB0aGF0IGluIHRoZSB1cGNvbWluZyBjb21taXQsIHRoZSBwYXJlbnQgaXMgc3RpbGwgdmFsaWQnXHJcbiAgICAgICAgICAgICk7XHJcbiAgICAgICAgICAgIGV4ZWMoYGdpdCBhZGQgJHtzdWJSZXBvRm9sZGVyfS8uZ2l0cmVwb2ApO1xyXG5cclxuICAgICAgICAgICAgZXhlYyhgZ2l0IGNvbW1pdCAtLXJldXNlLW1lc3NhZ2UgJHtzdWJSZXBvQ21kU2hhfWApO1xyXG4gICAgICAgIH1cclxuXHJcbiAgICAgICAgY29uc29sZS5sb2coXHJcbiAgICAgICAgICAgIGDinIUgU3VicmVwbyAke3RjLmN5YW59JHtzdWJSZXBvRm9sZGVyfSR7dGMucmVzZXR9IGhhcyBiZWVuICR7dGMuY3lhbn0ke2NvbW1hbmR9ZWQke3RjLnJlc2V0fSBhbmQgaXMgdXAgdG8gZGF0ZWBcclxuICAgICAgICApO1xyXG4gICAgfVxyXG59XHJcbiJdLCJuYW1lcyI6WyJydW5TdWJSZXBvQ29tbWFuZCIsImNvbW1hbmQiLCJzdWJSZXBvRm9sZGVyIiwiaXNWZXJib3NlIiwiZ2V0RXhlY1ZhbHVlIiwiY3JlYXRlR2V0RXhlY1ZhbHVlIiwiZXhlYyIsImNyZWF0ZUV4ZWMiLCJnaXRSZXBvUGFyZW50VmFsdWUiLCJnaXRSZXBvUGFyZW50SW5TeW5jIiwiY29uc29sZSIsImxvZyIsInRjIiwiY3lhbiIsInJlc2V0IiwibGF0ZXN0Q29tbWl0IiwiZ2l0UmVwb1BhcmVudHNDb21taXQiLCJnaXRSZXBvUGFyZW50Q29tbWl0Iiwic3BsaXQiLCJzdWJSZXBvQ21kT3V0IiwiaXNVcFRvRGF0ZSIsImluY2x1ZGVzIiwic3ViUmVwb0NtZFNoYSJdLCJyYW5nZU1hcHBpbmdzIjoiOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7IiwibWFwcGluZ3MiOiI7Ozs7K0JBVWdCQTs7O2VBQUFBOzs7c0JBVitCO2dDQUNUO0FBUy9CLFNBQVNBLGtCQUFrQixFQUFFQyxPQUFPLEVBQUVDLGFBQWEsRUFBRUMsU0FBUyxFQUF3QjtJQUN6RixNQUFNQyxlQUFlQyxJQUFBQSx3QkFB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
