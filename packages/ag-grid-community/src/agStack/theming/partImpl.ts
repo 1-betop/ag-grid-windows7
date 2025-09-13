@@ -93,7 +93,7 @@ export class PartImpl implements Part {
             if (css) {
                 const className = `ag-theme-${this.feature ?? 'part'}-${++partCounter}`;
                 if (typeof css === 'function') css = css();
-                css = `:where(.${className}) {\n${css}\n}\n`;
+                css = _prefixSelectorsWithClass(className, css);
                 for (const cssImport of this.cssImports ?? []) {
                     css = `@import url(${JSON.stringify(cssImport)});\n${css}`;
                 }
@@ -108,4 +108,16 @@ export class PartImpl implements Part {
         }
         return inject ? inject.class : false;
     }
+}
+
+function _prefixSelectorsWithClass(className: string, css: string): string {
+    return css.replace(/([^{}]+)\s*\{([^{}]*)\}/g, (match, selectorGroup: string, ruleBody: string) => {
+        // 忽略 at-rules
+        if (selectorGroup.trim().startsWith('@')) return match;
+        const selectors = selectorGroup
+            .split(',')
+            .map((s) => `:where(.${className}) ${s.trim()}`)
+            .join(', ');
+        return `${selectors} {${ruleBody}}`;
+    });
 }
