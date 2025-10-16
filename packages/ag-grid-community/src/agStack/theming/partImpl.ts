@@ -92,7 +92,9 @@ export class PartImpl implements Part {
             let { css } = this;
             if (css) {
                 const className = `ag-theme-${this.feature ?? 'part'}-${++partCounter}`;
-                if (typeof css === 'function') css = css();
+                if (typeof css === 'function') {
+                    css = css();
+                }
                 css = _prefixSelectorsWithClass(className, css);
                 for (const cssImport of this.cssImports ?? []) {
                     css = `@import url(${JSON.stringify(cssImport)});\n${css}`;
