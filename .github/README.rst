@@ -5,6 +5,9 @@ AG-GRID-WINDOWS7
 .. highlight:: bash
 
 
+該分支一直在拉取上游 commit 但是未經驗證, 最後一個驗證並構建的版本見分支 ``FOR-WINDOWS7-dist-community`` (September 13, 2025 at 2:49 PM)
+
+
 開發
 ======
 
